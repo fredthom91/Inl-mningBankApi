@@ -1,13 +1,16 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 
 namespace InlämningBankApi.Controllers
 {
-    [Produces("application/json")]
-    [Route("api")]
+    [EnableCors("AllowAll")]
     [ApiController]
+    [Route("[controller]")]
+
     public class AdController : ControllerBase
     {
         private readonly AdDbContext _dbContext;
@@ -18,6 +21,7 @@ namespace InlämningBankApi.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public ActionResult<Ad> CreateAd(Ad ad)
         {
             _dbContext.Ads.Add(ad);
@@ -27,6 +31,7 @@ namespace InlämningBankApi.Controllers
         }
         
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin, User")]
         public ActionResult<Ad> GetAd(int id)
         {
             var ad = _dbContext.Ads.Find(id);
@@ -38,14 +43,32 @@ namespace InlämningBankApi.Controllers
 
             return ad;
         }
-        
+
+
+        // READ ALL ///////////////////////////////////////////////////////
+        /// <summary>
+        /// Retrieve ALL Ads from the database
+        /// </summary>
+        /// <returns>
+        /// A full list of ALL Ads
+        /// </returns>
+        /// <remarks>
+        /// Example end point: GET /api/Ads
+        /// </remarks>
+        /// <response code="200">
+        /// Successfully returned a full list of ALL Ads
+        /// </response>
+
         [HttpGet]
+        [Authorize(Roles = "Admin, User")]
         public ActionResult<IEnumerable<Ad>> GetAds()
         {
             return _dbContext.Ads.ToList();
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+
         public ActionResult<Ad> DeleteAd(int id)
         {
             var ad = _dbContext.Ads.Find(id);
@@ -62,6 +85,8 @@ namespace InlämningBankApi.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+
         public IActionResult UpdateAd(int id, Ad ad)
         {
             if (id != ad.Id)
@@ -74,5 +99,28 @@ namespace InlämningBankApi.Controllers
 
             return NoContent();
         }
+
+        [HttpPatch]
+        [Authorize(Roles = "Admin")]
+
+        [Route("{id}")]
+        public async Task<ActionResult<Ad>>
+        PatchHero(JsonPatchDocument hero, int id)
+        {
+            // OBS: PUT Uppdaterar SuperHero (VISSA properties)
+            var adToUpdate = await
+                _dbContext.Ads.FindAsync(id);
+
+            if (adToUpdate == null)
+            {
+                return BadRequest("Ad not found");
+            }
+
+            hero.ApplyTo(adToUpdate);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(await _dbContext.Ads.ToListAsync());
+        }
+
     }
 }
